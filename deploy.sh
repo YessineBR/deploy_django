@@ -11,7 +11,7 @@ read -p "Enter the domain name (or press Enter to skip): " DOMAIN
 DOMAIN=${DOMAIN:-none}
 
 # Detect the server's IP address
-SERVER_IP=$(hostname -I | awk '{print $1}')
+SERVER_IP=$(hostname -I | tr ' ' '\n' | grep -Ev '^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.' | head -n 1)
 
 # Define other variables
 PROJECT_DIR="/var/www/$PROJECT_NAME/"
