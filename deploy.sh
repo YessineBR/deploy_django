@@ -1,23 +1,30 @@
 #!/bin/bash
 
-# Variables - Update these to fit your setup
-PROJECT_REPO="https://git.ulmus.tn/YessineBR/illico_pizza.git"
-PROJECT_NAME="illico_pizza"
-PROJECT_DIR="/var/www/illico_pizza/"
+# Prompt the user for the project repository URL
+read -p "Enter the project repository URL: " PROJECT_REPO
+
+# Extract the project name from the repository URL
+PROJECT_NAME=$(basename -s .git "$PROJECT_REPO")
+
+# Prompt the user for the domain name (optional)
+read -p "Enter the domain name (or press Enter to skip): " DOMAIN
+DOMAIN=${DOMAIN:-none}
+
+# Detect the server's IP address
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
+# Define other variables
+PROJECT_DIR="/var/www/$PROJECT_NAME/"
 VENV_NAME="venv"
-STATIC_ROOT="/var/www/illico_pizza"
-MEDIA_ROOT="/var/www/illico_pizza"
-SERVER_IP="<your_server_ip_address>"
-DOMAIN="example.com" # Optional, use if you have a domain
 
-
+# Update the system
 sudo apt update && sudo apt upgrade -y
 
 # Install dependencies
 sudo apt install -y git python3 python3-venv libaugeas0 python3-dev nginx
 
-# Create virtual environment and activate it
-mkdir $PROJECT_DIR && cd $PROJECT_DIR
+# Create project directory and set up the project
+mkdir -p $PROJECT_DIR && cd $PROJECT_DIR
 git clone $PROJECT_REPO .
 python3 -m venv $VENV_NAME
 source $VENV_NAME/bin/activate
@@ -28,11 +35,14 @@ pip install -r requirements.txt
 # Collect static files
 python3 manage.py collectstatic --noinput
 
-# Update ALLOWED_HOSTS
-sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP']" $PROJECT_DIR/$PROJECT_NAME/settings.py
+# Update ALLOWED_HOSTS in settings.py
+sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP']/" $PROJECT_DIR/$PROJECT_NAME/settings.py
 
 # Install Gunicorn
 pip install gunicorn
+
+# Calculate worker count
+WORKER_COUNT=$(( $(nproc) * 2 + 1 ))
 
 # Create Gunicorn socket file
 cat <<EOF | sudo tee /etc/systemd/system/gunicorn.socket
@@ -46,8 +56,6 @@ ListenStream=/run/gunicorn.sock
 WantedBy=sockets.target
 EOF
 
-WORKER_COUNT=$(( $(nproc) * 2 + 1 ))
-
 # Create Gunicorn service file
 cat <<EOF | sudo tee /etc/systemd/system/gunicorn.service
 [Unit]
@@ -58,7 +66,7 @@ After=network.target
 [Service]
 User=root
 Group=root
-WorkingDirectory=$PROJECT_DIR/$PROJECT_NAME
+WorkingDirectory=$PROJECT_DIR
 ExecStart=$PROJECT_DIR/$VENV_NAME/bin/gunicorn \
     --access-logfile - \
     --workers $WORKER_COUNT \
@@ -70,10 +78,10 @@ WantedBy=multi-user.target
 EOF
 
 # Create NGINX configuration
-cat <<EOF | sudo tee /etc/nginx/sites-available/$DOMAIN
+cat <<EOF | sudo tee /etc/nginx/sites-available/$PROJECT_NAME
 server {
     listen 80;
-    server_name $SERVER_IP $DOMAIN;
+    server_name $SERVER_IP ${DOMAIN:-_};
 
     location = /favicon.ico { access_log off; log_not_found off; }
 
@@ -95,22 +103,22 @@ server {
 EOF
 
 # Enable NGINX configuration
-sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/$PROJECT_NAME /etc/nginx/sites-enabled/
 
 # Test NGINX configuration and restart
 sudo nginx -t && sudo systemctl restart nginx
 
 # Set permissions for static and media files
 sudo chown -R root:root $PROJECT_DIR
-sudo chown -R root:root $PROJECT_DIR
-sudo chmod -R 755 $PROJECT_DIR
 sudo chmod -R 755 $PROJECT_DIR
 
-# Optional: Set up HTTPS using Certbot
-sudo python3 -m venv /opt/certbot/
-sudo /opt/certbot/bin/pip install certbot certbot-nginx
-sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
-sudo certbot --nginx -d $DOMAIN
+# Optional: Set up HTTPS using Certbot if a domain is provided
+if [[ $DOMAIN != "none" ]]; then
+    sudo python3 -m venv /opt/certbot/
+    sudo /opt/certbot/bin/pip install certbot certbot-nginx
+    sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
+    sudo certbot --nginx -d $DOMAIN
+fi
 
 # Finalize settings
 sed -i "s/DEBUG = True/DEBUG = False/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
@@ -122,3 +130,7 @@ sudo nginx -t && sudo systemctl restart nginx
 
 # Done!
 echo "Django website deployed successfully!"
+echo "Server IP: $SERVER_IP"
+if [[ $DOMAIN != "none" ]]; then
+    echo "Domain: $DOMAIN"
+fi
