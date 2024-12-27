@@ -160,7 +160,7 @@ sed -i "s/SESSION_COOKIE_SECURE = False/SESSION_COOKIE_SECURE = True/" $PROJECT_
 sudo systemctl daemon-reload
 
 # migrate database
-python3 $PROJECT_DIR/manage.py migrate
+python3 $PROJECT_DIR/$PROJECT_NAME/manage.py migrate
 
 # Restart NGINX
 sudo systemctl restart gunicorn.service && sudo nginx -t && sudo systemctl restart nginx
