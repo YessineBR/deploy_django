@@ -54,7 +54,7 @@ python3 -m venv $VENV_NAME
 source $VENV_NAME/bin/activate
 
 # Install project dependencies
-pip install -r requirements.txt
+pip install -r $PROJECT_DIR/$PROJECT_NAME/requirements.txt
 
 # Collect static files
 python3 manage.py collectstatic --noinput
@@ -108,6 +108,9 @@ EOF
 sudo systemctl start gunicorn.socket
 sudo systemctl enable gunicorn.socket
 
+# reload Daemon
+sudo systemctl daemon-reload
+
 # Create NGINX configuration
 cat <<EOF | sudo tee /etc/nginx/sites-available/$PROJECT_NAME
 server {
@@ -155,9 +158,6 @@ fi
 sed -i "s/DEBUG = True/DEBUG = False/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
 sed -i "s/CSRF_COOKIE_SECURE = False/CSRF_COOKIE_SECURE = True/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
 sed -i "s/SESSION_COOKIE_SECURE = False/SESSION_COOKIE_SECURE = True/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
-
-# reload Daemon
-sudo systemctl daemon-reload
 
 # migrate database
 python3 $PROJECT_DIR/$PROJECT_NAME/manage.py migrate
