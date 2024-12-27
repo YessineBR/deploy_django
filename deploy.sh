@@ -148,7 +148,7 @@ if [[ $DOMAIN != "none" ]]; then
     sudo python3 -m venv /opt/certbot/
     sudo /opt/certbot/bin/pip install certbot certbot-nginx
     sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
-    sudo certbot --nginx -d $DOMAIN -y
+    sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m contact@$DOMAIN
 fi
 
 # Finalize settings
