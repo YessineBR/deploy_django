@@ -61,9 +61,9 @@ python3 manage.py collectstatic --noinput
 
 # Update ALLOWED_HOSTS in settings.py
 if [[ $DOMAIN != "none" ]]; then
-    sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP', '$DOMAIN']/" $PROJECT_DIR/$PROJECT_NAME/settings.py
+    sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP', '$DOMAIN']/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
 else
-    sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP']/" $PROJECT_DIR/$PROJECT_NAME/settings.py
+    sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP']/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
 fi
 
 # Install Gunicorn and PostgreSQL adapter for python
