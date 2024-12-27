@@ -16,6 +16,7 @@ The script will install the following dependencies:
 - Git for version control
 - Nginx as the web server
 - Gunicorn as the WSGI server
+- Psycopg2-binary as the PostgreSQL adapter for python
 - libaugeas0 for Nginx configuration
 - Certbot (optional, for SSL certificates)
 
