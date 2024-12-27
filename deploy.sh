@@ -1,16 +1,28 @@
 #!/bin/bash
 
-# Prompt the user for the project repository URL
-read -p "Enter the project repository URL: " PROJECT_REPO
+# Default values for optional arguments
+DOMAIN="none"
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --repo) PROJECT_REPO="$2"; shift ;;
+        --domain) DOMAIN="$2"; shift ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+# Ensure required arguments are provided
+if [[ -z "$PROJECT_REPO" ]]; then
+    echo "Error: --repo is required."
+    exit 1
+fi
 
 # Extract the project name from the repository URL
 PROJECT_NAME=$(basename -s .git "$PROJECT_REPO")
 
-# Prompt the user for the domain name (optional)
-read -p "Enter the domain name (or press Enter to skip): " DOMAIN
-DOMAIN=${DOMAIN:-none}
-
-# Detect the server's IP address
+# Detect the server's public IP address
 SERVER_IP=$(hostname -I | tr ' ' '\n' | grep -Ev '^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.' | head -n 1)
 
 # Define other variables
