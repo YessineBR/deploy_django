@@ -29,7 +29,8 @@ if [[ -z "$PROJECT_REPO" ]]; then
 fi
 
 # Extract the project name from the repository URL
-PROJECT_NAME=$(basename -s .git "$PROJECT_REPO")
+RAW_PROJECT_NAME=$(basename -s .git "$PROJECT_REPO")
+PROJECT_NAME=${RAW_PROJECT_NAME//-/_}  # Replace dashes with underscores
 
 # Detect the server's public IP address
 SERVER_IP=$(hostname -I | tr ' ' '\n' | grep -Ev '^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.' | head -n 1)
