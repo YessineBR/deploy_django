@@ -50,8 +50,8 @@ python3 manage.py collectstatic --noinput
 # Update ALLOWED_HOSTS in settings.py
 sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP']/" $PROJECT_DIR/$PROJECT_NAME/settings.py
 
-# Install Gunicorn
-pip install gunicorn
+# Install Gunicorn and PostgreSQL adapter for python
+pip install gunicorn psycopg2-binary
 
 # Calculate worker count
 WORKER_COUNT=$(( $(nproc) * 2 + 1 ))

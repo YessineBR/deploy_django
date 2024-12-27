@@ -26,7 +26,7 @@ The script will install the following dependencies:
 Deploy your Django project with the following command:
 
 ```bash
-bash deploy_django.sh --repo <repository_url> --domain <your_domain>
+bash deploy.sh --repo <repository_url> --domain <your_domain>
 ```
 
 ### Command Arguments
@@ -39,7 +39,7 @@ bash deploy_django.sh --repo <repository_url> --domain <your_domain>
 ### Example Command
 
 ```bash
-bash deploy_django.sh --repo https://github.com/yourusername/yourproject.git --domain example.com
+bash deploy.sh --repo https://github.com/yourusername/yourproject.git --domain example.com
 ```
 
 ## Deployment Process
