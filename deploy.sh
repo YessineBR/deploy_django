@@ -93,6 +93,9 @@ ExecStart=$PROJECT_DIR/$VENV_NAME/bin/gunicorn \
 WantedBy=multi-user.target
 EOF
 
+sudo systemctl start gunicorn.socket
+sudo systemctl enable gunicorn.socket
+
 # Create NGINX configuration
 cat <<EOF | sudo tee /etc/nginx/sites-available/$PROJECT_NAME
 server {
@@ -140,6 +143,9 @@ fi
 sed -i "s/DEBUG = True/DEBUG = False/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
 sed -i "s/CSRF_COOKIE_SECURE = False/CSRF_COOKIE_SECURE = True/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
 sed -i "s/SESSION_COOKIE_SECURE = False/SESSION_COOKIE_SECURE = True/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
+
+# reload Daemon
+sudo systemctl daemon-reload
 
 # Restart NGINX
 sudo nginx -t && sudo systemctl restart nginx
