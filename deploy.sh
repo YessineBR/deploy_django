@@ -156,8 +156,11 @@ sed -i "s/SESSION_COOKIE_SECURE = False/SESSION_COOKIE_SECURE = True/" $PROJECT_
 # reload Daemon
 sudo systemctl daemon-reload
 
+# migrate database
+python3 $PROJECT_DIR/manage.py migrate
+
 # Restart NGINX
-sudo nginx -t && sudo systemctl restart nginx
+sudo systemctl restart gunicorn.service && sudo nginx -t && sudo systemctl restart nginx
 
 # Done!
 echo "Django website $PROJECT_NAME deployed successfully!"
