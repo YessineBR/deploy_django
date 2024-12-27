@@ -1,18 +1,12 @@
 #!/bin/bash
-
+set -e
 # Django Deployment Script
 # Author: Yessine Ben Rhouma
-# Email: ben.rhouma.yessine06110@gmail.com
-# License: MIT
-# Copyright (c) 2024 Yessine Ben Rhouma
-# 
-# A script to automate Django project deployment on Ubuntu servers
-# with Nginx, Gunicorn, and optional SSL configuration.
 
-# Default values for optional arguments
+# Default values
 DOMAIN="none"
 
-# Parse command-line arguments
+# Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --repo) PROJECT_REPO="$2"; shift ;;
@@ -22,110 +16,103 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Ensure required arguments are provided
 if [[ -z "$PROJECT_REPO" ]]; then
     echo "Error: --repo is required."
     exit 1
 fi
 
-# Extract the project name from the repository URL
-RAW_PROJECT_NAME=$(basename -s .git "$PROJECT_REPO")
-PROJECT_NAME=${RAW_PROJECT_NAME//-/_}  # Replace dashes with underscores
-
-# Detect the server's public IP address
-SERVER_IP=$(hostname -I | tr ' ' '\n' | grep -Ev '^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.' | head -n 1)
-
-# Define other variables
-PROJECT_DIR="/var/www/$PROJECT_NAME"
-VENV_NAME="venv"
-
-echo "Project directory : $PROJECT_DIR"
-
-# Update the system
 sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl
 
-# Install dependencies
-sudo apt install -y git python3 python3-venv libaugeas0 python3-dev nginx
+SERVER_IP=$(curl -s http://checkip.amazonaws.com)
 
-# Create project directory and set up the project
-mkdir -p $PROJECT_DIR/ && cd $PROJECT_DIR/
-git clone $PROJECT_REPO
-python3 -m venv $VENV_NAME
-source $VENV_NAME/bin/activate
+# Clone repository
+git clone "$PROJECT_REPO" temp_repo
 
-# Install project dependencies
-pip install -r $PROJECT_DIR/$PROJECT_NAME/requirements.txt
-
-# Collect static files
-python3 manage.py collectstatic --noinput
-
-# Update ALLOWED_HOSTS in settings.py
-if [[ $DOMAIN != "none" ]]; then
-    sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP', '$DOMAIN']/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
-else
-    sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP']/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
+# Find project name by locating the settings.py file
+SETTINGS_FILE=$(find temp_repo -name "settings.py" | head -n 1)
+if [[ -z "$SETTINGS_FILE" ]]; then
+    echo "Error: Could not find settings.py in the repository."
+    exit 1
 fi
 
-# Install Gunicorn and PostgreSQL adapter for python
-pip install gunicorn psycopg2-binary
+PROJECT_NAME=$(basename "$(dirname "$SETTINGS_FILE")")
+echo "Detected Django project name: $PROJECT_NAME"
 
-# Calculate worker count
+# Setup project directory
+PROJECT_DIR="/var/www/$PROJECT_NAME"
+REPO_DIR="$PROJECT_DIR/$PROJECT_NAME"
+VENV_DIR="$PROJECT_DIR/venv"
+
+# Move repository contents
+mkdir -p "$REPO_DIR"
+mv temp_repo/* "$REPO_DIR"
+rm -rf temp_repo
+
+# Create and activate the virtual environment
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
+pip install -r "$REPO_DIR/requirements.txt"
+pip install psycopg2-binary gunicorn
+
+# Apply migrations and collect static files
+python3 "$REPO_DIR/manage.py" migrate
+python3 "$REPO_DIR/manage.py" collectstatic --noinput
+
+# Modify settings
+python3 <<EOF
+import re
+from pathlib import Path
+
+settings_path = Path("$REPO_DIR/$PROJECT_NAME/settings.py")
+content = settings_path.read_text()
+
+content = re.sub(r"DEBUG\s*=\s*True", "DEBUG = False", content)
+content = re.sub(r"ALLOWED_HOSTS\s*=\s*\[.*?\]", f"ALLOWED_HOSTS = ['{SERVER_IP}', '{DOMAIN}']", content)
+content = re.sub(r"CSRF_COOKIE_SECURE\s*=\s*False", "CSRF_COOKIE_SECURE = True", content)
+content = re.sub(r"SESSION_COOKIE_SECURE\s*=\s*False", "SESSION_COOKIE_SECURE = True", content)
+
+settings_path.write_text(content)
+EOF
+
+# Gunicorn setup
 WORKER_COUNT=$(( $(nproc) * 2 + 1 ))
 
-# Create Gunicorn socket file
-cat <<EOF | sudo tee /etc/systemd/system/gunicorn.socket
+sudo tee /etc/systemd/system/gunicorn.socket > /dev/null <<EOF
 [Unit]
 Description=Gunicorn Socket
-
 [Socket]
 ListenStream=/run/gunicorn.sock
-
+SocketUser=www-data
+SocketGroup=www-data
+SocketMode=0660
 [Install]
 WantedBy=sockets.target
 EOF
 
-# Create Gunicorn service file
-cat <<EOF | sudo tee /etc/systemd/system/gunicorn.service
+sudo tee /etc/systemd/system/gunicorn.service > /dev/null <<EOF
 [Unit]
 Description=Gunicorn Service
-Requires=gunicorn.socket
 After=network.target
-
 [Service]
-User=root
-Group=root
-WorkingDirectory=$PROJECT_DIR/$PROJECT_NAME/
-ExecStart=$PROJECT_DIR/$VENV_NAME/bin/gunicorn \
-    --access-logfile - \
-    --workers $WORKER_COUNT \
-    --bind unix:/run/gunicorn.sock \
-    $PROJECT_NAME.wsgi:application
-
+User=www-data
+Group=www-data
+WorkingDirectory=$REPO_DIR
+ExecStart=$VENV_DIR/bin/gunicorn --workers $WORKER_COUNT --bind unix:/run/gunicorn.sock $PROJECT_NAME.wsgi:application
 [Install]
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl start gunicorn.socket
-sudo systemctl enable gunicorn.socket
+sudo systemctl start gunicorn.socket && sudo systemctl enable gunicorn.socket
 
-# reload Daemon
-sudo systemctl daemon-reload
-
-# Create NGINX configuration
-cat <<EOF | sudo tee /etc/nginx/sites-available/$PROJECT_NAME
+# NGINX setup
+sudo tee /etc/nginx/sites-available/$PROJECT_NAME > /dev/null <<EOF
 server {
     listen 80;
     server_name $SERVER_IP ${DOMAIN:-_};
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-
     location /static/ {
-        root $PROJECT_DIR;
-        autoindex on;
-    }
-
-    location /media/ {
-        root $PROJECT_DIR;
+        root $REPO_DIR;
         autoindex on;
     }
 
@@ -136,15 +123,8 @@ server {
 }
 EOF
 
-# Enable NGINX configuration
 sudo ln -s /etc/nginx/sites-available/$PROJECT_NAME /etc/nginx/sites-enabled/
-
-# Test NGINX configuration and restart
 sudo nginx -t && sudo systemctl restart nginx
-
-# Set permissions for static and media files
-sudo chown -R root:root $PROJECT_DIR
-sudo chmod -R 755 $PROJECT_DIR
 
 # Optional: Set up HTTPS using Certbot if a domain is provided
 if [[ $DOMAIN != "none" ]]; then
@@ -154,20 +134,4 @@ if [[ $DOMAIN != "none" ]]; then
     sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m contact@$DOMAIN
 fi
 
-# Finalize settings
-sed -i "s/DEBUG = True/DEBUG = False/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
-sed -i "s/CSRF_COOKIE_SECURE = False/CSRF_COOKIE_SECURE = True/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
-sed -i "s/SESSION_COOKIE_SECURE = False/SESSION_COOKIE_SECURE = True/" $PROJECT_DIR/$PROJECT_NAME/$PROJECT_NAME/settings.py
-
-# migrate database
-python3 $PROJECT_DIR/$PROJECT_NAME/manage.py migrate
-
-# Restart NGINX
-sudo systemctl restart gunicorn.service && sudo nginx -t && sudo systemctl restart nginx
-
-# Done!
-echo "Django website $PROJECT_NAME deployed successfully!"
-echo "Server IP: $SERVER_IP"
-if [[ $DOMAIN != "none" ]]; then
-    echo "Domain: $DOMAIN"
-fi
+echo "Django project $PROJECT_NAME deployed successfully at $SERVER_IP!"
