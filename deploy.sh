@@ -151,7 +151,7 @@ sudo systemctl daemon-reload
 sudo nginx -t && sudo systemctl restart nginx
 
 # Done!
-echo "Django website deployed successfully!"
+echo "Django website $PROJECT_NAME deployed successfully!"
 echo "Server IP: $SERVER_IP"
 if [[ $DOMAIN != "none" ]]; then
     echo "Domain: $DOMAIN"
