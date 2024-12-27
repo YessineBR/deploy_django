@@ -2,6 +2,14 @@ MIT License
 
 Copyright (c) 2024 Yessine Ben Rhouma
 
+Django Deployment Script
+A script to automate Django project deployment on Ubuntu servers
+with Nginx, Gunicorn, and optional SSL configuration.
+
+Author: Yessine Ben Rhouma
+GitHub: https://github.com/YessineBR
+Contact: Email - ben.rhouma.yessine0610@gmail.com
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -9,8 +17,17 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+2. Attribution Requirement: Any use, reproduction, or distribution of the Software
+   must include clear and visible credit to the original author, Yessine Ben Rhouma,
+   in one or more of the following ways:
+   - Maintaining the author credits in the source code header
+   - Including attribution in the documentation
+   - Displaying credits in the user interface (if applicable)
+   The attribution must include the author's name and a reference to the original
+   repository or source.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

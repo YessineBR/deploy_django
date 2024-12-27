@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Django Deployment Script
+# Author: Yessine Ben Rhouma
+# Email: ben.rhouma.yessine06110@gmail.com
+# License: MIT
+# Copyright (c) 2024 Yessine Ben Rhouma
+# 
+# A script to automate Django project deployment on Ubuntu servers
+# with Nginx, Gunicorn, and optional SSL configuration.
+
 # Default values for optional arguments
 DOMAIN="none"
 
