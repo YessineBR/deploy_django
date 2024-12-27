@@ -35,8 +35,10 @@ PROJECT_NAME=$(basename -s .git "$PROJECT_REPO")
 SERVER_IP=$(hostname -I | tr ' ' '\n' | grep -Ev '^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.' | head -n 1)
 
 # Define other variables
-PROJECT_DIR="/var/www/$PROJECT_NAME/"
+PROJECT_DIR="/var/www/$PROJECT_NAME"
 VENV_NAME="venv"
+
+echo "Project directory : $PROJECT_DIR"
 
 # Update the system
 sudo apt update && sudo apt upgrade -y
@@ -45,8 +47,8 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y git python3 python3-venv libaugeas0 python3-dev nginx
 
 # Create project directory and set up the project
-mkdir -p $PROJECT_DIR && cd $PROJECT_DIR
-git clone $PROJECT_REPO .
+mkdir -p $PROJECT_DIR/ && cd $PROJECT_DIR/
+git clone $PROJECT_REPO
 python3 -m venv $VENV_NAME
 source $VENV_NAME/bin/activate
 
@@ -91,7 +93,7 @@ After=network.target
 [Service]
 User=root
 Group=root
-WorkingDirectory=$PROJECT_DIR
+WorkingDirectory=$PROJECT_DIR/$PROJECT_NAME/
 ExecStart=$PROJECT_DIR/$VENV_NAME/bin/gunicorn \
     --access-logfile - \
     --workers $WORKER_COUNT \
@@ -145,7 +147,7 @@ if [[ $DOMAIN != "none" ]]; then
     sudo python3 -m venv /opt/certbot/
     sudo /opt/certbot/bin/pip install certbot certbot-nginx
     sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
-    sudo certbot --nginx -d $DOMAIN
+    sudo certbot --nginx -d $DOMAIN -y
 fi
 
 # Finalize settings
