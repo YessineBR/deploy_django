@@ -1,6 +1,6 @@
 # Django Deployment Script
 
-This script automates the deployment of a Django project on a server. It handles dependency installation, virtual environment setup, Gunicorn configuration, and Nginx setup as the web server. The script also offers optional HTTPS configuration using Certbot for SSL certificates.
+This script automates the deployment of a Django project on a server. It handles dependency installation, virtual environment setup, Gunicorn configuration, and Nginx setup as the web server. The script includes error handling with automatic rollback capability and optional HTTPS configuration using Certbot.
 
 ## Prerequisites
 
@@ -11,13 +11,12 @@ This script automates the deployment of a Django project on a server. It handles
 
 ### System Requirements
 
-The script will install the following dependencies:
-- Python 3 and related packages (python3-venv, python3-dev)
+The script will automatically install the following dependencies if not present:
+- Python 3 and related packages (python3-venv)
 - Git for version control
 - Nginx as the web server
 - Gunicorn as the WSGI server
-- Psycopg2-binary as the PostgreSQL adapter for python
-- libaugeas0 for Nginx configuration
+- Psycopg2-binary as the PostgreSQL adapter
 - Certbot (optional, for SSL certificates)
 
 ## Installation
@@ -27,7 +26,7 @@ The script will install the following dependencies:
 Deploy your Django project with the following command:
 
 ```bash
-bash deploy.sh --repo <repository_url> --domain <your_domain>
+bash deploy.sh --repo <repository_url> [--domain <your_domain>] [--user <system_user>]
 ```
 
 ### Command Arguments
@@ -35,12 +34,21 @@ bash deploy.sh --repo <repository_url> --domain <your_domain>
 - `--repo` (Required): URL of your Django project's Git repository
 - `--domain` (Optional): Domain name for the project
   - If provided, HTTPS will be configured using Certbot
-  - If omitted, the server's public IP address will be used
+  - If omitted, the server's IP address will be used
+- `--user` (Optional): System user to run the application
+  - Defaults to 'www-data' if not specified
 
-### Example Command
+### Example Commands
 
 ```bash
+# Basic deployment using IP address
+bash deploy.sh --repo https://github.com/yourusername/yourproject.git
+
+# Deployment with domain and HTTPS
 bash deploy.sh --repo https://github.com/yourusername/yourproject.git --domain example.com
+
+# Deployment with custom system user
+bash deploy.sh --repo https://github.com/yourusername/yourproject.git --domain example.com --user customuser
 ```
 
 ## Deployment Process
@@ -48,19 +56,19 @@ bash deploy.sh --repo https://github.com/yourusername/yourproject.git --domain e
 The script performs the following steps in order:
 
 1. **System Preparation**
-   - Updates system packages
-   - Installs required dependencies
+   - Checks and installs required dependencies
    - Creates necessary directories
+   - Sets up proper file permissions
 
 2. **Project Setup**
    - Clones the repository to `/var/www/yourproject/`
    - Creates and configures Python virtual environment
    - Installs project dependencies from `requirements.txt`
-   - Collects static files using Django's collectstatic
+   - Runs migrations and collects static files
 
 3. **Server Configuration**
-   - Sets up Gunicorn as the WSGI server
-   - Configures Nginx as the reverse proxy
+   - Sets up Gunicorn with automatic worker calculation
+   - Configures Nginx with optimized settings
    - Implements HTTPS if domain is provided
    - Updates Django settings for production
 
@@ -69,6 +77,7 @@ The script performs the following steps in order:
    - Disables DEBUG mode
    - Sets up HTTPS redirects (if applicable)
    - Configures appropriate ALLOWED_HOSTS
+   - Sets proper file permissions and ownership
 
 ## Post-Deployment Verification
 
@@ -77,24 +86,31 @@ The script performs the following steps in order:
 Monitor the status of your services:
 
 ```bash
-sudo systemctl status gunicorn
+sudo systemctl status gunicorn_<project_name>.service
 sudo systemctl status nginx
 ```
 
 ### Log File Locations
 
-- Nginx access logs: `/var/log/nginx/access.log`
-- Nginx error logs: `/var/log/nginx/error.log`
-- Gunicorn logs: Check systemd journal with `journalctl -u gunicorn`
+The script creates separate log files for each project:
+
+- Nginx access logs: `/var/log/nginx/<server_name>_access.log`
+- Nginx error logs: `/var/log/nginx/<server_name>_error.log`
+- Gunicorn access logs: `/var/log/gunicorn_<project_name>_access.log`
+- Gunicorn error logs: `/var/log/gunicorn_<project_name>_error.log`
+
+Where:
+- `<server_name>` is your domain name if provided, otherwise your project name
+- `<project_name>` is automatically detected from your Django project structure
 
 ## Configuration Requirements
 
 ### Project Requirements
 
 1. Valid `requirements.txt` file in your repository
-2. Django project structured according to best practices
-3. Static files configured correctly in settings.py
-4. Database configuration appropriate for production
+2. Standard Django project structure with discoverable settings.py
+3. Properly configured static files in settings.py
+4. Production-ready database configuration
 
 ### Server Requirements
 
@@ -106,37 +122,73 @@ sudo systemctl status nginx
    - Manage system services
    - Configure Nginx
 
+## Error Handling and Rollback
+
+The script includes automatic rollback functionality that:
+- Tracks all created files and configurations
+- Automatically removes them if an error occurs
+- Provides clear error messages
+- Ensures the server remains in a clean state even if deployment fails
+
 ## Troubleshooting Guide
 
 ### Common Issues
 
-1. **Gunicorn Fails to Start**
-   - Check socket file existence: `/run/gunicorn.sock`
-   - Verify file permissions
-   - Review Gunicorn logs for Python errors
+1. **Gunicorn Socket Connection Issues**
+   - Check socket file existence: `/run/gunicorn_<project_name>.sock`
+   - Verify file permissions and ownership
+   - Check Gunicorn service status and logs
 
 2. **Nginx Configuration Issues**
    - Validate configuration: `sudo nginx -t`
-   - Check error logs: `/var/log/nginx/error.log`
-   - Verify proxy settings to Gunicorn
+   - Check server_name directive matches your domain/project name
+   - Verify proxy pass to correct socket file
 
 3. **Static Files Not Serving**
    - Confirm STATIC_ROOT in settings.py
-   - Verify collectstatic ran successfully
-   - Check Nginx static file location configuration
+   - Check file permissions in static directory
+   - Verify Nginx static file location configuration
+
+4. **Permission Issues**
+   - Check ownership of project files (`www-data:www-data` by default)
+   - Verify socket file permissions
+   - Check log file permissions
 
 ### Security Notes
 
-- Regularly update system packages
-- Monitor server logs for suspicious activity
-- Keep Django and dependencies updated
-- Use strong database passwords
-- Configure appropriate firewall rules
+- The script configures services with secure defaults
+- Uses separate service instances per project for isolation
+- Implements secure cookie settings
+- Sets up HTTPS when domain is provided
+- Uses proper file permissions and ownership
+- Keeps services isolated with systemd
+- Regularly update system packages and dependencies
+
+## Best Practices
+
+1. **Backup Before Deployment**
+   - Take server snapshots if possible
+   - Backup database if updating existing installation
+
+2. **Testing**
+   - Test deployment in a staging environment first
+   - Verify all application functionality post-deployment
+   - Check logs for any warnings or errors
+
+3. **Maintenance**
+   - Monitor log files regularly
+   - Keep system packages updated
+   - Regularly renew SSL certificates
+   - Monitor disk space and resource usage
+
+## Contributing
+
+Contributions are welcome! Please submit issues and pull requests on the project repository.
 
 ## License
 
 This deployment script is released under the MIT License. See LICENSE file for details.
 
-## Contributing
+## Acknowledgments
 
-Contributions are welcome! Please submit issues and pull requests on the project repository.
+Original author: Yessine Ben Rhouma
