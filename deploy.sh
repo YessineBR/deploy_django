@@ -214,6 +214,12 @@ server {
         add_header Cache-Control "public, no-transform";
     }
 
+    location /media/ {
+        alias ${PROJECT_DIR}/media/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+
     location / {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
