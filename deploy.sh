@@ -229,6 +229,10 @@ server {
         proxy_read_timeout 300s;
         proxy_connect_timeout 75s;
     }
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
 }
 EOF
 ROLLBACK_FILES+=("/etc/nginx/sites-available/${SERVER_NAME}")
